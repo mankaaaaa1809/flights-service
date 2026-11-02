@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Ошибка')}"></head>
+<body>
+<nav th:replace="~{fragments :: nav('')}"></nav>
+<main>
+  <div class="panel">
+    <b style="color:var(--err)" th:text="${message}">Ошибка</b>
+    <p class="muted">Проверьте, что регистр, оплата и сервис запущены, а имя сервиса верно (<a th:href="@{/settings}">настройки</a>).</p>
+  </div>
+</main>
+</body>
+</html>

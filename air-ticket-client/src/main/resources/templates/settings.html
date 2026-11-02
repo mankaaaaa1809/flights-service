@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Настройки')}"></head>
+<body>
+<nav th:replace="~{fragments :: nav('settings')}"></nav>
+<main>
+  <h1>Настройки</h1>
+  <p class="sub">Адрес прикладного сервиса клиент берёт из реестра.</p>
+  <div class="banner ok" th:if="${ok}"><span th:text="${ok}"></span></div>
+  <div class="panel">
+    <form class="form" method="post" th:action="@{/settings}">
+      <label>Имя сервиса в реестре<input name="service" required th:value="${service}"></label>
+      <label>Фирма (firmId)<input name="firm" required th:value="${firm}"></label>
+      <label>Реестр сервисов (application.properties)<input th:value="${registryUrl}" disabled></label>
+      <label>Сервис оплаты (application.properties)<input th:value="${paymentUrl}" disabled></label>
+      <div><button class="primary">Сохранить</button></div>
+    </form>
+  </div>
+</main>
+</body>
+</html>

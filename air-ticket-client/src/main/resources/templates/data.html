@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head(${title})}"></head>
+<body>
+<nav th:replace="~{fragments :: nav('service')}"></nav>
+<main id="data" th:data-service="${svc.name()}" th:data-method="${method}"
+      th:data-pay="@{/pay(service=${svc.name()},method=${method})}">
+  <div class="crumbs"><a th:href="@{/service/{n}(n=${svc.name()})}" th:text="${svc.name()}"></a> / <span th:text="${method}"></span></div>
+  <h1 th:text="${title}">Данные</h1>
+  <p class="sub">Токен: <span class="pill" th:classappend="${st.code()}" th:text="${st.label()}"></span>
+    <span class="mono small" th:text="${st.period()}"></span>
+    · правьте значения прямо в ячейках и нажимайте «Сохранить».</p>
+  <div id="bn"></div>
+  <div class="bar"><input class="grow" id="flt" placeholder="Фильтр по таблице…"><button id="reload" type="button">Обновить</button></div>
+  <div class="scroll" id="tbl"><div class="empty">Загрузка…</div></div>
+</main>
+<div id="toast"></div>
+<script th:src="@{/js/data.js}"></script>
+</body>
+</html>
