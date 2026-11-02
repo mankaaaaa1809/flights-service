@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head(${svc.name()})}"></head>
+<body>
+<nav th:replace="~{fragments :: nav(${mine} ? 'service' : 'registry')}"></nav>
+<main>
+  <div class="crumbs" th:unless="${mine}"><a th:href="@{/registry}">Реестр</a> / <span th:text="${svc.name()}"></span></div>
+  <h1 th:text="${svc.name()}">Сервис</h1>
+  <p class="sub"><span th:text="${svc.description()}"></span><br><span class="mono small" th:text="${svc.baseUrl()}"></span></p>
+  <h2>Методы</h2>
+  <div class="rows">
+    <div class="ticket" th:each="m : ${svc.methods()}" th:with="st=${@clientState.status(svc.name(), m.name())}">
+      <div class="mrow">
+        <div>
+          <div class="t-name" th:text="${m.name()}"></div>
+          <div class="mono small muted" th:text="${m.httpMethod() + ' ' + m.path()}"></div>
+          <p style="margin:8px 0" th:text="${m.description()}"></p>
+          <div class="chips"><span class="pill" th:each="p : ${m.parameters()}" th:text="${p.name() + ' · ' + p.location() + (p.required() ? '*' : '')}"></span></div>
+        </div>
+        <div class="acts">
+          <span class="pill price" th:text="${m.price()}"></span>
+          <span class="pill" th:classappend="${st.code()}" th:text="${st.label()}"></span>
+          <a class="btn primary" th:href="@{/pay(service=${svc.name()},method=${m.name()})}">Оплатить</a>
+          <a class="btn" th:if="${known.contains(m.name())}" th:href="@{/data/{s}/{m}(s=${svc.name()},m=${m.name()})}">Открыть</a>
+        </div>
+      </div>
+    </div>
+    <div class="empty" th:if="${#lists.isEmpty(svc.methods())}">У сервиса нет платных методов</div>
+  </div>
+</main>
+</body>
+</html>

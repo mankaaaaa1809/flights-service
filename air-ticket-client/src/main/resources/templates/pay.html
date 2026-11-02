@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Оплата')}"></head>
+<body>
+<nav th:replace="~{fragments :: nav('pay')}"></nav>
+<main>
+  <h1>Оплата метода</h1>
+  <p class="sub">Сервис: <b th:text="${svc.name()}"></b>. Токен сохраняется на сервере клиента автоматически. Время — по часам сервера.</p>
+  <div class="banner ok" th:if="${ok}"><span th:text="${ok}"></span>
+    <a class="btn primary" th:if="${selected != null}" th:href="@{/data/{s}/{m}(s=${svc.name()},m=${selected})}">Открыть данные</a></div>
+  <div class="banner err" th:if="${err}"><span th:text="${err}"></span></div>
+  <div class="panel">
+    <form class="form" method="post" th:action="@{/pay}">
+      <input type="hidden" name="service" th:value="${svc.name()}">
+      <label>Метод
+        <select name="method" id="pm">
+          <option th:each="m : ${svc.methods()}" th:value="${m.name()}" th:text="${m.name()}"
+                  th:selected="${m.name() == selected}" th:attr="data-price=${m.price()}"></option>
+        </select>
+      </label>
+      <label>Фирма (firmId)<input name="firm" required th:value="${firm}"></label>
+      <div class="two">
+        <label>Действует с<input type="datetime-local" name="dateFrom" id="pfrom" required th:value="${now}"></label>
+        <label>Действует по<input type="datetime-local" name="dateTo" id="pto" required th:value="${later}"></label>
+      </div>
+      <div class="presets" id="presets">
+        <button type="button" data-h="1">1 час</button><button type="button" data-h="24">1 день</button>
+        <button type="button" data-h="168">7 дней</button><button type="button" data-h="720">30 дней</button>
+      </div>
+      <div class="sum"><span class="muted">К оплате</span><b id="psum">—</b></div>
+      <div><button class="primary">Оплатить</button></div>
+    </form>
+  </div>
+</main>
+<script th:src="@{/js/pay.js}"></script>
+</body>
+</html>

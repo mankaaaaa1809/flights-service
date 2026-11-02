@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title th:text="${title} + ' — AirTickets'">AirTickets</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<nav th:fragment="nav(active)">
+  <a class="brand" th:href="@{/}">Air<b>Tickets</b></a>
+  <a class="l" th:classappend="${active == 'service'} ? 'on'" th:href="@{/}">Мой сервис</a>
+  <a class="l" th:classappend="${active == 'registry'} ? 'on'" th:href="@{/registry}">Реестр</a>
+  <a class="l" th:classappend="${active == 'pay'} ? 'on'" th:href="@{/pay}">Оплата</a>
+  <a class="l" th:classappend="${active == 'settings'} ? 'on'" th:href="@{/settings}">Настройки</a>
+</nav>
+</body>
+</html>
