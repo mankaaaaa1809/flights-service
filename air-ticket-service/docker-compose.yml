@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    container_name: flights-db
+    environment:
+      POSTGRES_DB: flights
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "15434:5432"   # 5432 занят регистром, 5433 - сервисом оплаты
+    volumes:
+      - flightsdata:/var/lib/postgresql/data
+
+volumes:
+  flightsdata:

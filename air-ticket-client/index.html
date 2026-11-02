@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Клиент: заказ авиабилетов</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --text:#1c1f24; --muted:#6b7280; --line:#d9dce1; --accent:#1769e0; --ok:#157f3b; --bad:#c62828; --dirty:#fff7d6; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14161a; --card:#1d2025; --text:#e8eaed; --muted:#9aa1ab; --line:#363b43; --accent:#5b9bff; --ok:#4cc27a; --bad:#ff7b7b; --dirty:#3b3418; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.45 system-ui, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); }
+  main { max-width:1180px; margin:0 auto; padding:16px; }
+  h1 { font-size:20px; margin:0 0 12px; }
+  h2 { font-size:15px; margin:0 0 10px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:14px; }
+  label { display:inline-flex; flex-direction:column; font-size:12px; color:var(--muted); gap:2px; margin-right:8px; }
+  input, select, button { font:inherit; color:inherit; background:var(--card); border:1px solid var(--line); border-radius:5px; padding:5px 8px; }
+  button { cursor:pointer; background:var(--accent); color:#fff; border-color:var(--accent); }
+  button.sec { background:transparent; color:var(--text); border-color:var(--line); }
+  button.del { background:transparent; color:var(--bad); border-color:var(--bad); }
+  button:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; flex-wrap:wrap; align-items:flex-end; gap:6px; margin-bottom:8px; }
+  .wrap { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; }
+  th, td { border-bottom:1px solid var(--line); padding:4px 6px; text-align:left; vertical-align:middle; }
+  th { font-size:12px; color:var(--muted); white-space:nowrap; }
+  td input, td select { width:100%; min-width:70px; }
+  tr.dirty td { background:var(--dirty); }
+  tr.new td { background:color-mix(in srgb, var(--accent) 10%, transparent); }
+  .msg { min-height:20px; margin:6px 0; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); } .muted { color:var(--muted); }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:800px) { .grid2 { grid-template-columns:1fr; } }
+  .pay { border:1px solid var(--line); border-radius:6px; padding:10px; }
+  .tabs button { margin-right:4px; } .tabs button.active { background:var(--accent); color:#fff; } .tabs button:not(.active) { background:transparent; color:var(--text); border-color:var(--line); }
+  small { color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>✈ Заказ авиабилетов — клиент сервиса</h1>
+
+  <section>
+    <h2>1. Настройки</h2>
+    <div class="row">
+      <label>Регистр сервисов <input id="cfgRegistry" size="30"></label>
+      <label>Сервис оплаты <input id="cfgPayment" size="30"></label>
+      <label>Имя сервиса в регистре <input id="cfgService" size="18"></label>
+      <label>Ваша фирма (firmId) <input id="cfgFirm" size="16"></label>
+      <button id="btnConnect">Найти сервис в регистре</button>
+    </div>
+    <div id="msgConnect" class="msg"></div>
+  </section>
+
+  <section>
+    <h2>2. Регистр сервисов</h2>
+    <div class="row">
+      <label>Поиск (имя / метод / описание) <input id="regQuery" size="30"></label>
+      <button id="btnSearch" class="sec">Искать</button>
+    </div>
+    <div id="msgRegistry" class="msg"></div>
+    <div class="wrap"><table id="regTable"></table></div>
+  </section>
+
+  <section>
+    <h2>3. Оплата методов</h2>
+    <div id="msgPay" class="msg muted">Сначала найдите сервис в регистре (раздел 1).</div>
+    <div class="grid2" id="payBoxes"></div>
+  </section>
+
+  <section>
+    <h2>4. Работа с данными</h2>
+    <div class="tabs row">
+      <button id="tabFlights" class="active">Рейсы (Flights)</button>
+      <button id="tabBookings">Бронирования (Bookings)</button>
+    </div>
+    <div class="row" id="filters"></div>
+    <div id="msgData" class="msg"></div>
+    <div class="wrap"><table id="dataTable"></table></div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const DEFAULTS = { registry:'http://localhost:8080', payment:'http://localhost:5002', service:'AirTicketService', firm:'AeroFirm' };
+  const METHODS = ['Flights', 'Bookings'];
+  const state = { base:null, methods:{}, tab:'Flights' };
+
+  // ---------- хранилище (с запасным вариантом, если localStorage недоступен) ----------
+  const mem = {};
+  const store = {
+    get(k) { try { const v = localStorage.getItem(k); return v === null ? mem[k] ?? null : v; } catch { return mem[k] ?? null; } },
+    set(k, v) { mem[k] = v; try { localStorage.setItem(k, v); } catch {} }
+  };
+  const cfg = () => ({
+    registry: $('cfgRegistry').value.trim().replace(/\/+$/, ''),
+    payment: $('cfgPayment').value.trim().replace(/\/+$/, ''),
+    service: $('cfgService').value.trim(),
+    firm: $('cfgFirm').value.trim()
+  });
+  for (const [k, id] of [['registry','cfgRegistry'],['payment','cfgPayment'],['service','cfgService'],['firm','cfgFirm']]) {
+    $(id).value = store.get('cfg.' + k) || DEFAULTS[k];
+    $(id).addEventListener('change', () => store.set('cfg.' + k, $(id).value.trim()));
+  }
+
+  const say = (id, text, cls = '') => { const e = $(id); e.textContent = text; e.className = 'msg ' + cls; };
+  const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); kids.forEach(k => e.append(k)); return e; };
+
+  async function http(method, url, body, headers = {}) {
+    const opt = { method, headers: { ...headers } };
+    if (body !== undefined) { opt.body = JSON.stringify(body); opt.headers['Content-Type'] = 'application/json'; }
+    let res;
+    try { res = await fetch(url, opt); }
+    catch { throw new Error('Нет связи с ' + url + ' (сервис не запущен или CORS)'); }
+    const text = await res.text();
+    let data = null; try { data = text ? JSON.parse(text) : null; } catch {}
+    if (!res.ok) { const err = new Error((data && data.message) || res.statusText || ('HTTP ' + res.status)); err.status = res.status; err.data = data; throw err; }
+    return data;
+  }
+
+  // ---------- форматирование дат ----------
+  const pad = n => String(n).padStart(2, '0');
+  const toInput = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const showDt = s => s ? s.replace('T', ' ').slice(0, 16) : '';
+
+  // ---------- 2. Регистр ----------
+  async function loadRegistry() {
+    const c = cfg(); const q = $('regQuery').value.trim();
+    say('msgRegistry', 'Загрузка…', 'muted');
+    try {
+      const list = await http('GET', `${c.registry}/api/services/search?q=${encodeURIComponent(q)}`);
+      const t = $('regTable'); t.replaceChildren(el('thead', {}, el('tr', {}, ...['Сервис','Адрес','Метод','HTTP','Путь','Цена','Описание'].map(h => el('th', { textContent:h })))));
+      const tb = el('tbody');
+      list.forEach(s => (s.methods.length ? s.methods : [null]).forEach((m, i) => tb.append(el('tr', {},
+        el('td', { textContent: i ? '' : s.name }), el('td', { textContent: i ? '' : s.baseUrl }),
+        el('td', { textContent: m ? m.name : '—' }), el('td', { textContent: m ? m.httpMethod : '' }),
+        el('td', { textContent: m ? m.path : '' }), el('td', { textContent: m && m.price != null ? m.price : '' }),
+        el('td', { textContent: m ? (m.description || '') : (s.description || '') })))));
+      t.append(tb);
+      say('msgRegistry', `Найдено сервисов: ${list.length}`, 'ok');
+    } catch (e) { say('msgRegistry', e.message, 'bad'); }
+  }
+
+  // ---------- 1. Подключение к сервису через регистр ----------
+  async function connect() {
+    const c = cfg();
+    say('msgConnect', 'Запрос к регистру…', 'muted');
+    try {
+      const s = await http('GET', `${c.registry}/api/services/${encodeURIComponent(c.service)}`);
+      state.base = s.baseUrl.replace(/\/+$/, '');
+      state.methods = {};
+      s.methods.forEach(m => state.methods[m.name] = m);
+      const missing = METHODS.filter(m => !state.methods[m]);
+      say('msgConnect', `Сервис ${s.name} найден: ${state.base}` + (missing.length ? `. В регистре нет методов: ${missing.join(', ')}` : ''), missing.length ? 'bad' : 'ok');
+      await renderPay();
+      loadData();
+    } catch (e) { state.base = null; say('msgConnect', e.status === 404 ? `Сервис «${c.service}» не зарегистрирован в регистре` : e.message, 'bad'); }
+  }
+
+  // ---------- 3. Оплата ----------
+  const tokenKey = m => `token.${cfg().firm}.${cfg().service}.${m}`;
+  const getToken = m => { try { return JSON.parse(store.get(tokenKey(m))); } catch { return null; } };
+
+  async function serverNow() {
+    try { return new Date((await http('GET', state.base + '/internal/server-time')).now); } catch { return new Date(); }
+  }
+
+  async function renderPay() {
+    const box = $('payBoxes'); box.replaceChildren();
+    const now = await serverNow();
+    const from = new Date(now); from.setSeconds(0, 0);
+    const to = new Date(from.getTime() + 24 * 3600 * 1000);
+    say('msgPay', `Платит фирма «${cfg().firm}». Время сервера: ${showDt(toInput(now))}`, 'muted');
+    METHODS.forEach(name => {
+      const m = state.methods[name]; if (!m) return;
+      const tk = getToken(name);
+      const status = el('div', { className: 'msg' });
+      const refresh = () => { const t = getToken(name); status.textContent = t ? `Токен …${t.token.slice(-6)}, период ${showDt(t.validFrom)} — ${showDt(t.validTo)}` : 'Не оплачено'; status.className = 'msg ' + (t ? 'ok' : 'muted'); };
+      const iFrom = el('input', { type:'datetime-local', value: toInput(from) });
+      const iTo = el('input', { type:'datetime-local', value: toInput(to) });
+      const info = el('div', { className:'muted', textContent: m.description || '' });
+      const btn = el('button', { textContent: `Оплатить (${m.price ?? 0})` });
+      btn.onclick = async () => {
+        btn.disabled = true;
+        try {
+          const r = await http('POST', cfg().payment + '/api/payment/pay', { firmId: cfg().firm, serviceName: cfg().service, methodName: name, dateFrom: iFrom.value, dateTo: iTo.value });
+          store.set(tokenKey(name), JSON.stringify({ token: r.token, validFrom: r.validFrom, validTo: r.validTo }));
+          say('msgPay', `${name}: ${r.message}`, 'ok');
+        } catch (e) {
+          // оплата могла пройти, но сервис не принял токен (ответ 400 с токеном)
+          if (e.data && e.data.token) store.set(tokenKey(name), JSON.stringify({ token: e.data.token, validFrom: e.data.validFrom, validTo: e.data.validTo }));
+          say('msgPay', `${name}: ${e.message}`, 'bad');
+        }
+        btn.disabled = false; refresh();
+      };
+      box.append(el('div', { className:'pay' },
+        el('b', { textContent: name }), info,
+        el('div', { className:'row' }, el('label', {}, 'С', iFrom), el('label', {}, 'По', iTo), btn), status));
+      refresh();
+    });
+  }
+
+  // ---------- 4. Таблицы ----------
+  const TABLES = {
+    Flights: {
+      path: '/api/flights', filters: [['origin','Откуда'],['destination','Куда'],['date','Дата','date']],
+      cols: [
+        { k:'id', t:'Id', ro:true },
+        { k:'flightNumber', t:'Рейс' }, { k:'origin', t:'Откуда' }, { k:'destination', t:'Куда' },
+        { k:'departureTime', t:'Вылет', type:'datetime-local' }, { k:'arrivalTime', t:'Прибытие', type:'datetime-local' },
+        { k:'price', t:'Цена', type:'number', step:'0.01' }, { k:'totalSeats', t:'Мест', type:'number' },
+        { k:'seatsAvailable', t:'Свободно', ro:true }
+      ]
+    },
+    Bookings: {
+      path: '/api/bookings', filters: [['flightId','Id рейса','number']],
+      cols: [
+        { k:'id', t:'Id', ro:true }, { k:'flightId', t:'Id рейса', type:'number' }, { k:'flightNumber', t:'Рейс', ro:true },
+        { k:'passengerName', t:'Пассажир' }, { k:'passportNumber', t:'Паспорт' },
+        { k:'status', t:'Статус', type:'select', opts:['CONFIRMED','CANCELLED'] },
+        { k:'createdAt', t:'Создана', ro:true, dt:true }
+      ]
+    }
+  };
+
+  function api(method, suffix, body) {
+    const t = getToken(state.tab);
+    const headers = t ? { 'X-Payment-Token': t.token } : {};
+    return http(method, state.base + TABLES[state.tab].path + suffix, body, headers);
+  }
+
+  function makeInput(col, value) {
+    let i;
+    if (col.type === 'select') { i = el('select'); col.opts.forEach(o => i.append(el('option', { value:o, textContent:o }))); i.value = value ?? col.opts[0]; }
+    else { i = el('input', { type: col.type || 'text', value: value ?? '' }); if (col.step) i.step = col.step; }
+    i.dataset.k = col.k; return i;
+  }
+
+  function collect(tr, cols) {
+    const o = {};
+    cols.filter(c => !c.ro).forEach(c => {
+      let v = tr.querySelector(`[data-k="${c.k}"]`).value;
+      if (c.type === 'number') v = v === '' ? null : Number(v);
+      o[c.k] = v;
+    });
+    return o;
+  }
+
+  function buildRow(def, item, isNew) {
+    const tr = el('tr', { className: isNew ? 'new' : '' });
+    def.cols.forEach(c => {
+      const v = item ? item[c.k] : '';
+      if (c.ro) tr.append(el('td', { textContent: c.dt ? showDt(v) : (v ?? '') }));
+      else {
+        const val = c.type === 'datetime-local' && v ? String(v).slice(0, 16) : v;
+        const inp = makeInput(c, val);
+        inp.addEventListener('input', () => tr.classList.add('dirty'));
+        tr.append(el('td', {}, inp));
+      }
+    });
+    const act = el('td', { style:'white-space:nowrap' });
+    if (isNew) {
+      const add = el('button', { textContent:'Добавить' });
+      add.onclick = async () => { try { await api('POST', '', collect(tr, def.cols)); say('msgData', 'Запись добавлена', 'ok'); loadData(); } catch (e) { say('msgData', e.message, 'bad'); } };
+      act.append(add);
+    } else {
+      const save = el('button', { textContent:'💾', title:'Сохранить изменения строки' });
+      save.onclick = async () => { try { await api('PUT', '/' + item.id, collect(tr, def.cols)); say('msgData', `Строка ${item.id} сохранена`, 'ok'); loadData(); } catch (e) { say('msgData', e.message, 'bad'); } };
+      const del = el('button', { className:'del', textContent:'🗑', title:'Удалить строку' });
+      del.onclick = async () => { if (!confirm(`Удалить строку ${item.id}?`)) return; try { await api('DELETE', '/' + item.id); say('msgData', `Строка ${item.id} удалена`, 'ok'); loadData(); } catch (e) { say('msgData', e.message, 'bad'); } };
+      act.append(save, ' ', del);
+    }
+    tr.append(act);
+    return tr;
+  }
+
+  function renderFilters() {
+    const f = $('filters'); f.replaceChildren();
+    TABLES[state.tab].filters.forEach(([k, label, type]) => f.append(el('label', {}, label, el('input', { type: type || 'text', id: 'f_' + k }))));
+    const b = el('button', { textContent:'Загрузить' }); b.onclick = loadData; f.append(b);
+  }
+
+  async function loadData() {
+    const def = TABLES[state.tab], t = $('dataTable');
+    if (!state.base) { say('msgData', 'Сначала найдите сервис в регистре (раздел 1)', 'muted'); return; }
+    const qs = def.filters.map(([k]) => [k, ($('f_' + k) || {}).value]).filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+    say('msgData', 'Загрузка…', 'muted');
+    try {
+      const rows = await api('GET', qs ? '?' + qs : '');
+      t.replaceChildren(el('thead', {}, el('tr', {}, ...def.cols.map(c => el('th', { textContent:c.t })), el('th'))));
+      const tb = el('tbody'); tb.append(buildRow(def, null, true));
+      rows.forEach(r => tb.append(buildRow(def, r, false)));
+      t.append(tb);
+      say('msgData', `Записей: ${rows.length}. Жёлтая строка — есть несохранённые изменения; верхняя строка — новая запись.`, 'ok');
+    } catch (e) {
+      t.replaceChildren();
+      say('msgData', (e.status === 401 || e.status === 403 ? '🔒 ' : '') + e.message, 'bad');
+    }
+  }
+
+  function setTab(name) {
+    state.tab = name;
+    $('tabFlights').classList.toggle('active', name === 'Flights');
+    $('tabBookings').classList.toggle('active', name === 'Bookings');
+    renderFilters(); $('dataTable').replaceChildren(); loadData();
+  }
+
+  $('btnConnect').onclick = connect;
+  $('btnSearch').onclick = loadRegistry;
+  $('regQuery').addEventListener('keydown', e => { if (e.key === 'Enter') loadRegistry(); });
+  $('tabFlights').onclick = () => setTab('Flights');
+  $('tabBookings').onclick = () => setTab('Bookings');
+  renderFilters(); loadRegistry();
+})();
+</script>
+</body>
+</html>
