@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "15434:5432"   # 5432 занят регистром, 5433 - сервисом оплаты
+      - "5434:5432"   # 5432 занят регистром, 5433 - сервисом оплаты
     volumes:
       - flightsdata:/var/lib/postgresql/data
 
