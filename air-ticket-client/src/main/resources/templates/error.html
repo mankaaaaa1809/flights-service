@@ -6,7 +6,8 @@
 <main>
   <div class="panel">
     <b style="color:var(--err)" th:text="${message}">Ошибка</b>
-    <p class="muted">Проверьте, что регистр, оплата и сервис запущены, а имя сервиса верно (<a th:href="@{/settings}">настройки</a>).</p>
+    <p class="muted">Проверьте, что регистр и прикладной сервис запущены, а сервис зарегистрирован в регистре.</p>
+    <a class="btn" th:href="@{/}">На главную</a>
   </div>
 </main>
 </body>

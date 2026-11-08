@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Регистрация')}"></head>
+<body>
+<div class="auth">
+  <a class="brand" th:href="@{/}">Air<b>Tickets</b></a>
+  <div class="panel">
+    <h2>Регистрация</h2>
+    <div class="banner err" th:if="${error}"><span th:text="${error}"></span></div>
+    <form class="form" method="post" th:action="@{/register}">
+      <label>Логин (он же ID фирмы при оплате)<input name="username" required autofocus th:value="${username}" autocomplete="username"></label>
+      <label>Пароль<input name="password" type="password" required minlength="6" autocomplete="new-password"></label>
+      <label>Повторите пароль<input name="confirm" type="password" required minlength="6" autocomplete="new-password"></label>
+      <div><button class="primary">Создать аккаунт</button></div>
+    </form>
+  </div>
+  <p class="alt">Уже есть аккаунт? <a th:href="@{/login}">Войти</a></p>
+</div>
+</body>
+</html>

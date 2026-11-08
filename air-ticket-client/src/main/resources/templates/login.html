@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Вход')}"></head>
+<body>
+<div class="auth">
+  <a class="brand" th:href="@{/}">Air<b>Tickets</b></a>
+  <div class="panel">
+    <h2>Вход</h2>
+    <div class="banner err" th:if="${param.error}"><span>Неверный логин или пароль</span></div>
+    <div class="banner ok" th:if="${param.registered}"><span>Аккаунт создан — войдите</span></div>
+    <div class="banner ok" th:if="${param.logout}"><span>Вы вышли из аккаунта</span></div>
+    <form class="form" method="post" th:action="@{/login}">
+      <label>Логин<input name="username" required autofocus autocomplete="username"></label>
+      <label>Пароль<input name="password" type="password" required autocomplete="current-password"></label>
+      <div><button class="primary">Войти</button></div>
+    </form>
+  </div>
+  <p class="alt">Нет аккаунта? <a th:href="@{/register}">Зарегистрироваться</a></p>
+</div>
+</body>
+</html>

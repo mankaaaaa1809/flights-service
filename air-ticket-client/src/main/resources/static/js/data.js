@@ -1,5 +1,6 @@
 (() => {
-  const root = document.getElementById('data'), svc = root.dataset.service, method = root.dataset.method, payUrl = root.dataset.pay;
+  const root = document.getElementById('data'), method = root.dataset.method, payUrl = root.dataset.pay;
+  const csrf = document.querySelector('meta[name=_csrf]').content, csrfHeader = document.querySelector('meta[name=_csrf_header]').content;
   const $ = s => document.querySelector(s);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const dt = s => s ? String(s).replace('T', ' ').slice(0, 16) : '';
@@ -18,17 +19,17 @@
         { f: 'status', t: 'Статус', type: 'select', opts: Object.keys(STATUS) }, { f: 'createdAt', t: 'Создана', ro: 1, fmt: dt }] }
   };
   const R = CFG[method];
-  const API = `/api/data/${encodeURIComponent(svc)}/${encodeURIComponent(method)}`;
+  const API = `/ui/api/${method.toLowerCase()}`;
   let rows = [];
 
   function toast(msg, err) { const t = $('#toast'); t.textContent = msg; t.className = err ? 'err' : ''; t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => t.style.display = 'none', 5000); }
   async function api(path, opts = {}) {
-    let r; try { r = await fetch(API + path, { headers: { 'Content-Type': 'application/json' }, ...opts }); } catch { throw new Error('Нет связи с клиентским приложением'); }
+    let r; try { r = await fetch(API + path, { headers: { 'Content-Type': 'application/json', [csrfHeader]: csrf }, ...opts }); } catch { throw new Error('Нет связи с сервером'); }
     const txt = await r.text(); let d = null; try { d = txt ? JSON.parse(txt) : null; } catch { d = txt; }
-    if (!r.ok) throw Object.assign(new Error((d && (d.message || d.error)) || 'HTTP ' + r.status), { pay: r.status === 401 || r.status === 403 });
+    if (!r.ok) throw Object.assign(new Error((d && (d.message || d.error)) || 'HTTP ' + r.status), { pay: r.status === 402 });
     return d;
   }
-  const banner = msg => { $('#bn').innerHTML = `<div class="banner"><span>${esc(msg)}</span><a class="btn primary" href="${esc(payUrl)}">Оплатить метод</a></div>`; };
+  const banner = msg => { $('#bn').innerHTML = `<div class="banner"><span>${esc(msg)}</span><a class="btn primary" href="${esc(payUrl)}">Оплатить услугу</a></div>`; };
 
   const field = (c, v) => {
     if (c.type === 'select') return `<select data-f="${c.f}">${c.opts.map(o => `<option value="${o}" ${o === v ? 'selected' : ''}>${esc(STATUS[o] || o)}</option>`).join('')}</select>`;

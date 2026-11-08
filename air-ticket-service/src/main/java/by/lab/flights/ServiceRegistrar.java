@@ -102,7 +102,7 @@ public class ServiceRegistrar implements ApplicationRunner {
                     + "GET /api/flights (фильтры origin, destination, date=yyyy-MM-dd), GET /api/flights/{id}, "
                     + "POST /api/flights, PUT /api/flights/{id}, DELETE /api/flights/{id}",
                 "paid", true,
-                "price", 10.00,
+                "price", Catalog.FLIGHTS.price().doubleValue(),
                 "parameters", List.of(
                     param("X-Payment-Token", "string", "header", true),
                     param("origin", "string", "query", false),
@@ -116,7 +116,7 @@ public class ServiceRegistrar implements ApplicationRunner {
                     + "GET /api/bookings (фильтр flightId), GET /api/bookings/{id}, POST /api/bookings, "
                     + "PUT /api/bookings/{id}, DELETE /api/bookings/{id}",
                 "paid", true,
-                "price", 5.00,
+                "price", Catalog.BOOKINGS.price().doubleValue(),
                 "parameters", List.of(
                     param("X-Payment-Token", "string", "header", true),
                     param("flightId", "integer", "query", false))),
@@ -144,7 +144,16 @@ public class ServiceRegistrar implements ApplicationRunner {
                 "path", "/internal/server-time",
                 "description", "Служебный: время сервера",
                 "paid", false,
-                "parameters", List.of())));
+                "parameters", List.of()),
+            Map.of(
+                "name", "FirmTokens",
+                "httpMethod", "GET",
+                "path", "/internal/firm-tokens",
+                "description", "Служебный: токены оплаты фирмы для клиента (ключ клиента)",
+                "paid", false,
+                "parameters", List.of(
+                    param("firmId", "string", "query", true),
+                    param("X-Client-Key", "string", "header", true)))));
   }
 
   private static Map<String, Object> param(String name, String type, String location, boolean required) {

@@ -11,12 +11,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
-/** Все обращения клиента к другим сервисам: Регистр, сервис оплаты, прикладной сервис. */
+/** Все обращения клиента к другим приложениям: Регистр и прикладной сервис (оплата вызывается пользователем в браузере). */
 @Service
 public class RemoteApi {
 
@@ -50,17 +48,14 @@ public class RemoteApi {
   private final RestClient http;
   private final ObjectMapper mapper;
   private final String registry;
-  private final String payment;
 
-  public RemoteApi(RestClient.Builder builder, ObjectMapper mapper,
-      @Value("${registry.url}") String registry, @Value("${payment.url}") String payment) {
+  public RemoteApi(RestClient.Builder builder, ObjectMapper mapper, @Value("${registry.url}") String registry) {
     SimpleClientHttpRequestFactory rf = new SimpleClientHttpRequestFactory();
     rf.setConnectTimeout(5000);
-    rf.setReadTimeout(15000);
+    rf.setReadTimeout(30000); // на Render сервис может просыпаться после простоя
     this.http = builder.requestFactory(rf).build();
     this.mapper = mapper;
     this.registry = registry.replaceAll("/+$", "");
-    this.payment = payment.replaceAll("/+$", "");
   }
 
   /** Универсальный вызов; сетевые ошибки превращает в Resp со status = 0. */
@@ -81,7 +76,7 @@ public class RemoteApi {
           try {
             json = mapper.readTree(raw);
           } catch (Exception ignored) {
-            // не JSON — оставляем только raw
+            // не JSON — остаётся только raw
           }
         }
         return new Resp(res.getStatusCode().value(), json, raw);
@@ -93,37 +88,28 @@ public class RemoteApi {
 
   // ---------- Регистр ----------
 
+  /** Описание сервиса из Регистра: адрес (baseUrl), методы, их пути и цены. */
   public Dto.Service service(String name) {
     Resp r = call(HttpMethod.GET, registry + "/api/services/{n}", new Object[] {name}, null, Map.of());
     if (r.status() == 404) {
       throw new RemoteException("Сервис «" + name + "» не найден в реестре. Он запущен и зарегистрирован?");
     }
-    check(r, "Реестр");
+    if (!r.ok() || r.json() == null) {
+      throw new RemoteException(r.status() == 0 ? r.raw() : "Реестр: " + r.message());
+    }
     return mapper.convertValue(r.json(), Dto.Service.class);
   }
 
-  public List<Dto.Service> services(String q) {
-    Resp r = q == null || q.isBlank()
-        ? call(HttpMethod.GET, registry + "/api/services", new Object[0], null, Map.of())
-        : call(HttpMethod.GET, registry + "/api/services/search?q={q}", new Object[] {q}, null, Map.of());
-    check(r, "Реестр");
-    return mapper.convertValue(r.json(), new TypeReference<List<Dto.Service>>() {
-    });
-  }
+  // ---------- Прикладной сервис ----------
 
-  // ---------- Оплата ----------
-
-  public Resp pay(String firm, String service, String method, LocalDateTime from, LocalDateTime to) {
-    DateTimeFormatter iso = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-    Map<String, Object> body = Map.of("firmId", firm, "serviceName", service, "methodName", method,
-        "dateFrom", from.format(iso), "dateTo", to.format(iso));
-    return call(HttpMethod.POST, payment + "/api/payment/pay", new Object[0],
-        mapper.valueToTree(body).toString(), Map.of());
-  }
-
-  private void check(Resp r, String who) {
+  /** Токены оплаты фирмы (скрытый метод сервиса, доступ по ключу клиента). */
+  public List<Dto.FirmToken> firmTokens(String baseUrl, String firm, String key) {
+    Resp r = call(HttpMethod.GET, baseUrl.replaceAll("/+$", "") + "/internal/firm-tokens?firmId={f}",
+        new Object[] {firm}, null, Map.of("X-Client-Key", key));
     if (!r.ok() || r.json() == null) {
-      throw new RemoteException(r.status() == 0 ? r.raw() : who + ": " + r.message());
+      throw new RemoteException(r.status() == 0 ? r.raw() : "Сервис: " + r.message());
     }
+    return mapper.convertValue(r.json(), new TypeReference<List<Dto.FirmToken>>() {
+    });
   }
 }

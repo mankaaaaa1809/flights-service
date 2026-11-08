@@ -27,7 +27,8 @@ public class TokenService {
       Map.of("flights", FLIGHTS, "bookings", BOOKINGS);
 
   @JsonIgnoreProperties(ignoreUnknown = true)
-  public record PaymentInfo(String serviceName, String methodName, LocalDateTime validFrom, LocalDateTime validTo) {
+  public record PaymentInfo(String firmId, String serviceName, String methodName, LocalDateTime validFrom,
+      LocalDateTime validTo, Double price) {
   }
 
   private final PaymentTokenRepository tokens;
@@ -108,10 +109,48 @@ public class TokenService {
       tokens.delete(t);
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Токен оплачен не для этого сервиса/метода");
     }
-    // Источник истины об интервале - сервис оплаты
+    apply(t, info);
+  }
+
+  /** Источник истины об оплате - сервис оплаты: интервал, фирма и цена берутся из его ответа. */
+  private void apply(PaymentToken t, PaymentInfo info) {
     t.setValidFrom(info.validFrom());
     t.setValidTo(info.validTo());
+    t.setFirmId(info.firmId() == null ? null : info.firmId().trim());
+    t.setPrice(info.price());
     t.setVerified(true);
     tokens.save(t);
+  }
+
+  /**
+   * Для пользовательского интерфейса: пытается подтвердить токен и узнать фирму (пользователя), не бросая исключений.
+   * Сервис оплаты шлёт уведомление до завершения своей транзакции, поэтому «не найден» в первые минуты
+   * не считается ошибкой, токен не удаляется.
+   *
+   * @return true, если токен подтверждён и привязан к фирме
+   */
+  public boolean tryResolve(PaymentToken t) {
+    if (t.isVerified() && t.getFirmId() != null) {
+      return true;
+    }
+    PaymentInfo info;
+    try {
+      info = http.get().uri(paymentUrl + "/api/payment/check?token={t}", t.getToken())
+          .retrieve().body(PaymentInfo.class);
+    } catch (HttpClientErrorException.NotFound e) {
+      if (t.getReceivedAt() != null && t.getReceivedAt().isBefore(LocalDateTime.now().minusMinutes(10))) {
+        tokens.delete(t);
+      }
+      return false;
+    } catch (RestClientException e) {
+      return false;
+    }
+    if (info == null || !serviceName.equalsIgnoreCase(info.serviceName())
+        || !t.getMethodName().equalsIgnoreCase(info.methodName())) {
+      tokens.delete(t);
+      return false;
+    }
+    apply(t, info);
+    return true;
   }
 }
