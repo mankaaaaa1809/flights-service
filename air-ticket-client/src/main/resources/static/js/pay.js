@@ -1,11 +1,18 @@
 (() => {
-  const pm = document.getElementById('pm'), from = document.getElementById('pfrom'), to = document.getElementById('pto');
-  const sum = () => { const o = pm.selectedOptions[0]; document.getElementById('psum').textContent = o ? (o.dataset.price || 0) : '—'; };
-  const pad = n => String(n).padStart(2, '0');
-  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  pm.onchange = sum; sum();
-  document.getElementById('presets').onclick = e => {
-    const b = e.target.closest('[data-h]'); if (!b || !from.value) return;
-    to.value = fmt(new Date(new Date(from.value).getTime() + (+b.dataset.h) * 36e5));
+  const box = document.getElementById('payBox'), st = document.getElementById('st');
+  const method = box.dataset.method, open = box.dataset.open;
+  const done = until => {
+    st.innerHTML = `<span>✅ Оплата подтверждена${until ? ' — доступ до ' + until : ''}.</span> <a class="btn primary" href="${open}">Открыть услугу</a>`;
+    clearInterval(timer);
   };
+  async function poll() {
+    try {
+      const r = await fetch('/ui/status/' + encodeURIComponent(method), { headers: { Accept: 'application/json' } });
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d.paid) done(d.until);
+    } catch { /* повторим на следующем тике */ }
+  }
+  const timer = setInterval(poll, 3000);
+  if (box.dataset.paid === 'true') poll(); else setTimeout(poll, 500);
 })();

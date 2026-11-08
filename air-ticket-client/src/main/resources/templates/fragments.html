@@ -1,18 +1,33 @@
 <!DOCTYPE html>
-<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<html lang="ru" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:fragment="head(title)">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="_csrf" th:content="${_csrf?.token}">
+  <meta name="_csrf_header" th:content="${_csrf?.headerName}">
   <title th:text="${title} + ' — AirTickets'">AirTickets</title>
   <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body>
 <nav th:fragment="nav(active)">
   <a class="brand" th:href="@{/}">Air<b>Tickets</b></a>
-  <a class="l" th:classappend="${active == 'service'} ? 'on'" th:href="@{/}">Мой сервис</a>
-  <a class="l" th:classappend="${active == 'registry'} ? 'on'" th:href="@{/registry}">Реестр</a>
-  <a class="l" th:classappend="${active == 'pay'} ? 'on'" th:href="@{/pay}">Оплата</a>
-  <a class="l" th:classappend="${active == 'settings'} ? 'on'" th:href="@{/settings}">Настройки</a>
+  <a class="l" th:classappend="${active == 'catalog'} ? 'on'" th:href="@{/}">Услуги</a>
+  <a class="l" th:classappend="${active == 'payments'} ? 'on'" th:href="@{/my-payments}">Мои оплаты</a>
+  <button type="button" class="avatar" id="userBtn" title="Профиль" aria-label="Профиль">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+  </button>
+  <dialog id="userDlg" class="mini">
+    <div class="in">
+      <div class="small muted">Вы вошли как</div>
+      <div class="firm"><span class="mono" sec:authentication="name"></span></div>
+      <div class="small muted">Это ваш ID фирмы (FirmID) для оплаты</div>
+      <div class="bar" style="margin:14px 0 0">
+        <button type="button" class="copy" th:data-copy="${#authentication.name}">Копировать</button>
+        <form th:action="@{/logout}" method="post" style="margin:0"><button class="danger">Выйти</button></form>
+      </div>
+    </div>
+  </dialog>
+  <script th:src="@{/js/ui.js}" defer></script>
 </nav>
 </body>
 </html>

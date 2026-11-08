@@ -20,6 +20,10 @@ public class PaymentToken {
   private boolean verified;
   @Column(name = "received_at", nullable = false)
   private LocalDateTime receivedAt = LocalDateTime.now();
+  /** Фирма (логин пользователя), оплатившая метод; становится известна после подтверждения в сервисе оплаты. */
+  @Column(name = "firm_id", length = 100)
+  private String firmId;
+  private Double price;
 
   public String getToken() { return token; }
   public void setToken(String v) { this.token = v; }
@@ -32,4 +36,8 @@ public class PaymentToken {
   public boolean isVerified() { return verified; }
   public void setVerified(boolean v) { this.verified = v; }
   public LocalDateTime getReceivedAt() { return receivedAt; }
+  public String getFirmId() { return firmId; }
+  public void setFirmId(String v) { this.firmId = v; }
+  public Double getPrice() { return price; }
+  public void setPrice(Double v) { this.price = v; }
 }

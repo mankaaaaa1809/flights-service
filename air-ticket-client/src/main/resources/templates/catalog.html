@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments :: head('Услуги')}"></head>
+<body>
+<nav th:replace="~{fragments :: nav('catalog')}"></nav>
+<main>
+  <h1>Услуги</h1>
+  <p class="sub">Выберите услугу и оплатите её в сервисе оплаты — после этого она станет доступна вашему аккаунту.</p>
+  <div class="grid">
+    <div class="ticket" th:each="c : ${cards}">
+      <div class="t-name" th:text="${c.item().title()}"></div>
+      <p class="muted" style="margin:8px 0 0" th:text="${c.item().description()}"></p>
+      <div class="sep"></div>
+      <div class="mrow">
+        <div class="chips">
+          <span class="pill price" th:text="${c.item().price()} + ' ₽'"></span>
+          <span class="pill" th:classappend="${c.code()}" th:text="${c.label()}"></span>
+        </div>
+        <div class="acts">
+          <a class="btn primary" th:if="${c.code() == 'live'}" th:href="@{/data/{m}(m=${c.item().method()})}">Открыть</a>
+          <a class="btn primary" th:unless="${c.code() == 'live'}" th:href="@{/pay/{m}(m=${c.item().method()})}">Оплатить</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

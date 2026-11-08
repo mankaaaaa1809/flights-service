@@ -1,4 +1,8 @@
---TRUNCATE bookings, flights RESTART IDENTITY CASCADE;
+-- Начальные данные для AirTicketService (PostgreSQL, база flights).
+-- Запускать ПОСЛЕ первого старта сервиса (таблицы создаёт Hibernate).
+-- Скрипт безопасен: если в flights уже есть строки, ничего не делает.
+-- Чтобы заменить старые демо-данные, раскомментируйте следующую строку:
+-- TRUNCATE bookings, flights RESTART IDENTITY CASCADE;
 
 DO $$
 DECLARE
