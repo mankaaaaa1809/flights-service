@@ -23,19 +23,28 @@ public class ServiceRegistrar implements ApplicationRunner {
   private final String baseUrl;
   private final boolean reregister;
   private final String adminKey;
+  private final String clientUrl;
 
   public ServiceRegistrar(RestClient.Builder builder,
-      @Value("${registry.url}") String registryUrl,
-      @Value("${service.name}") String name,
-      @Value("${service.base-url}") String baseUrl,
-      @Value("${registry.reregister}") boolean reregister,
-      @Value("${registry.admin-key}") String adminKey) {
+                          @Value("${registry.url}") String registryUrl,
+                          @Value("${service.name}") String name,
+                          @Value("${service.base-url}") String baseUrl,
+                          @Value("${registry.reregister}") boolean reregister,
+                          @Value("${registry.admin-key}") String adminKey,
+                          @Value("${service.client-url:}") String clientUrl) {
     this.http = builder.build();
     this.registryUrl = registryUrl.replaceAll("/+$", "");
     this.name = name;
     this.baseUrl = baseUrl;
     this.reregister = reregister;
     this.adminKey = adminKey;
+    this.clientUrl = clientUrl == null ? "" : clientUrl.trim();
+  }
+
+  /** Описание сервиса в Регистре; если задан адрес клиента (CLIENT_URL), в конец добавляется ссылка на сайт. */
+  private String description() {
+    String base = "Удалённый заказ авиабилетов: каталог рейсов и бронирование";
+    return clientUrl.isEmpty() ? base : base + ". Сайт: " + clientUrl;
   }
 
   @Override
@@ -74,7 +83,7 @@ public class ServiceRegistrar implements ApplicationRunner {
         return false;
       }
       http.delete().uri(registryUrl + "/api/services/" + name)
-          .header("X-Admin-Key", adminKey).retrieve().toBodilessEntity();
+              .header("X-Admin-Key", adminKey).retrieve().toBodilessEntity();
       post();
       System.out.println(">>> [FLIGHTS] Перерегистрирован в регистре как " + name);
       return true;
@@ -83,77 +92,77 @@ public class ServiceRegistrar implements ApplicationRunner {
 
   private void post() {
     http.post().uri(registryUrl + "/api/services")
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(body())
-        .retrieve().toBodilessEntity();
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(body())
+            .retrieve().toBodilessEntity();
   }
 
   private Map<String, Object> body() {
     return Map.of(
-        "name", name,
-        "baseUrl", baseUrl,
-        "description", "Удалённый заказ авиабилетов: каталог рейсов и бронирование",
-        "methods", List.of(
-            Map.of(
-                "name", "Flights",
-                "httpMethod", "GET",
-                "path", "/api/flights",
-                "description", "Каталог рейсов. Оплата даёт доступ ко всем операциям над рейсами: "
-                    + "GET /api/flights (фильтры origin, destination, date=yyyy-MM-dd), GET /api/flights/{id}, "
-                    + "POST /api/flights, PUT /api/flights/{id}, DELETE /api/flights/{id}",
-                "paid", true,
-                "price", Catalog.FLIGHTS.price().doubleValue(),
-                "parameters", List.of(
-                    param("X-Payment-Token", "string", "header", true),
-                    param("origin", "string", "query", false),
-                    param("destination", "string", "query", false),
-                    param("date", "string", "query", false))),
-            Map.of(
-                "name", "Bookings",
-                "httpMethod", "GET",
-                "path", "/api/bookings",
-                "description", "Бронирование билетов. Оплата даёт доступ ко всем операциям над бронями: "
-                    + "GET /api/bookings (фильтр flightId), GET /api/bookings/{id}, POST /api/bookings, "
-                    + "PUT /api/bookings/{id}, DELETE /api/bookings/{id}",
-                "paid", true,
-                "price", Catalog.BOOKINGS.price().doubleValue(),
-                "parameters", List.of(
-                    param("X-Payment-Token", "string", "header", true),
-                    param("flightId", "integer", "query", false))),
-            Map.of(
-                "name", "PaymentToken",
-                "httpMethod", "POST",
-                "path", "/internal/payment-token",
-                "description", "Служебный: приём токена от сервиса оплаты",
-                "paid", false,
-                "parameters", List.of(
-                    param("token", "string", "body", true),
-                    param("methodName", "string", "body", true),
-                    param("validFrom", "string", "body", true),
-                    param("validTo", "string", "body", true))),
-            Map.of(
-                "name", "Health",
-                "httpMethod", "GET",
-                "path", "/internal/health",
-                "description", "Служебный: проверка работоспособности",
-                "paid", false,
-                "parameters", List.of()),
-            Map.of(
-                "name", "ServerTime",
-                "httpMethod", "GET",
-                "path", "/internal/server-time",
-                "description", "Служебный: время сервера",
-                "paid", false,
-                "parameters", List.of()),
-            Map.of(
-                "name", "FirmTokens",
-                "httpMethod", "GET",
-                "path", "/internal/firm-tokens",
-                "description", "Служебный: токены оплаты фирмы для клиента (ключ клиента)",
-                "paid", false,
-                "parameters", List.of(
-                    param("firmId", "string", "query", true),
-                    param("X-Client-Key", "string", "header", true)))));
+            "name", name,
+            "baseUrl", baseUrl,
+            "description", description(),
+            "methods", List.of(
+                    Map.of(
+                            "name", "Flights",
+                            "httpMethod", "GET",
+                            "path", "/api/flights",
+                            "description", "Каталог рейсов. Оплата даёт доступ ко всем операциям над рейсами: "
+                                    + "GET /api/flights (фильтры origin, destination, date=yyyy-MM-dd), GET /api/flights/{id}, "
+                                    + "POST /api/flights, PUT /api/flights/{id}, DELETE /api/flights/{id}",
+                            "paid", true,
+                            "price", Catalog.FLIGHTS.price().doubleValue(),
+                            "parameters", List.of(
+                                    param("X-Payment-Token", "string", "header", true),
+                                    param("origin", "string", "query", false),
+                                    param("destination", "string", "query", false),
+                                    param("date", "string", "query", false))),
+                    Map.of(
+                            "name", "Bookings",
+                            "httpMethod", "GET",
+                            "path", "/api/bookings",
+                            "description", "Бронирование билетов. Оплата даёт доступ ко всем операциям над бронями: "
+                                    + "GET /api/bookings (фильтр flightId), GET /api/bookings/{id}, POST /api/bookings, "
+                                    + "PUT /api/bookings/{id}, DELETE /api/bookings/{id}",
+                            "paid", true,
+                            "price", Catalog.BOOKINGS.price().doubleValue(),
+                            "parameters", List.of(
+                                    param("X-Payment-Token", "string", "header", true),
+                                    param("flightId", "integer", "query", false))),
+                    Map.of(
+                            "name", "PaymentToken",
+                            "httpMethod", "POST",
+                            "path", "/internal/payment-token",
+                            "description", "Служебный: приём токена от сервиса оплаты",
+                            "paid", false,
+                            "parameters", List.of(
+                                    param("token", "string", "body", true),
+                                    param("methodName", "string", "body", true),
+                                    param("validFrom", "string", "body", true),
+                                    param("validTo", "string", "body", true))),
+                    Map.of(
+                            "name", "Health",
+                            "httpMethod", "GET",
+                            "path", "/internal/health",
+                            "description", "Служебный: проверка работоспособности",
+                            "paid", false,
+                            "parameters", List.of()),
+                    Map.of(
+                            "name", "ServerTime",
+                            "httpMethod", "GET",
+                            "path", "/internal/server-time",
+                            "description", "Служебный: время сервера",
+                            "paid", false,
+                            "parameters", List.of()),
+                    Map.of(
+                            "name", "FirmTokens",
+                            "httpMethod", "GET",
+                            "path", "/internal/firm-tokens",
+                            "description", "Служебный: токены оплаты фирмы для клиента (ключ клиента)",
+                            "paid", false,
+                            "parameters", List.of(
+                                    param("firmId", "string", "query", true),
+                                    param("X-Client-Key", "string", "header", true)))));
   }
 
   private static Map<String, Object> param(String name, String type, String location, boolean required) {
